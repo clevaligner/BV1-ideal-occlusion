@@ -151,8 +151,8 @@ def arr_to_json(arr, file_name):
     with open(file_name, "w") as outfile:
         outfile.write(json_object)
         
-haut_bas = "haut"
-directory1 = os.path.dirname(os.path.realpath(__file__)) + '/'
+haut_bas = "bas"
+directory1 = os.path.dirname(os.path.realpath(__file__)) + '/inputs/423/'
 directory2 = directory1 + f"dispatching_{haut_bas}\\"
 directory3 = directory1 + f"filing_teeth_{haut_bas}\\"
 
@@ -302,4 +302,4 @@ o3d.visualization.draw_geometries([plane_blue_pcd2,plane_green_pcd2])
 
 transformation_matrix_array = np.array(transformation_matrix_m)
     
-arr_to_json(transformation_matrix_array, f"transfo_test_{haut_bas}")
+arr_to_json(transformation_matrix_array, "outputs/"+ f"transfo_test_{haut_bas}")
