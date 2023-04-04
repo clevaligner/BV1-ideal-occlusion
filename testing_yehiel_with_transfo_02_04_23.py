@@ -10,7 +10,6 @@ import open3d as o3d
 import math as m
 import json
 import os
-import matplotlib.pyplot as plt
 from sklearn.neighbors import NearestNeighbors
 
 def plane_through_3p(dict_three_points):
@@ -152,9 +151,14 @@ def arr_to_json(arr, file_name):
         outfile.write(json_object)
         
 haut_bas = "bas"
+
+print("===========================================================================")
+print("========================= IMPORTING FILES =================================")
+print("===========================================================================")
+
 directory1 = os.path.dirname(os.path.realpath(__file__)) + '/inputs/423/'
-directory2 = directory1 + f"dispatching_{haut_bas}\\"
-directory3 = directory1 + f"filing_teeth_{haut_bas}\\"
+directory2 = directory1 + f"dispatching_{haut_bas}/"
+directory3 = directory1 + f"filing_teeth_{haut_bas}/"
 
 txt_filename = f"seg_output_{haut_bas}.txt"
 # txt_filename = "full_teeth_array.txt"
@@ -163,7 +167,7 @@ dental = np.loadtxt(directory1 + txt_filename)
 dental_for_plan = dental[dental[:, 3] < 16]
 
 
-each_tooth_centroid = np.loadtxt(directory2+"each_tooth_centroid.txt")
+# each_tooth_centroid = np.loadtxt(directory2+"each_tooth_centroid.txt")
 plane_blue = np.loadtxt(directory2 + "plane_green.txt")
 plane_green = np.loadtxt(directory2 + "plane_blue.txt")
 
@@ -176,14 +180,14 @@ plane_green_pcd = pcd_o3d(plane_green[:,:-1],rgb=[1,0,0])
 
 dental_pcd = pcd_o3d(dental_for_plan[:,:-1],rgb=[1,1,0])
 
-o3d.visualization.draw_geometries([plane_blue_pcd,plane_green_pcd])
+# o3d.visualization.draw_geometries([plane_blue_pcd,plane_green_pcd])
 
 
 
 # plane_blue_pcd = plane_blue_pcd.voxel_down_sample(voxel_size=2)
 # relevant_blue_pcd = pcd_o3d(points_relavant,rgb=[1,0,0])
 # o3d.visualization.draw_geometries([relevant_blue_pcd])
-o3d.visualization.draw_geometries([plane_blue_pcd,plane_green_pcd])
+# o3d.visualization.draw_geometries([plane_blue_pcd,plane_green_pcd])
 
 # fc = open(directory1 +'export_selection_13.9_42.json')#bon
 fc = open(directory1 + 'export_20.18_17.json')
@@ -199,6 +203,11 @@ plane_blue_update = []
 plane_green_update = []
 transformation_matrix = []
 transformation_matrix_m=[]
+
+print("===========================================================================")
+print("========================= APPLYING 2D MOVEMENTS ===========================")
+print("===========================================================================")
+
 for nl in range(1,15):
     
     if haut_bas == "haut":
@@ -294,12 +303,15 @@ plane_green_pcd2 = pcd_o3d(np.concatenate(plane_green_update),rgb=[0,1,0])
 # np.savetxt("comparaison_ortal/" + f"{haut_bas}_updated_after_yehiel.txt",np.concatenate(new_teeth))
 
 teeth_pcd = pcd_o3d(np.concatenate(new_teeth),rgb=[0,0,1])
-o3d.visualization.draw_geometries([dental_pcd, plane_blue_pcd])
-o3d.visualization.draw_geometries([plane_blue_pcd,plane_blue_pcd2])
-o3d.visualization.draw_geometries([plane_blue_pcd2,teeth_pcd])
-o3d.visualization.draw_geometries([plane_blue_pcd2,plane_green_pcd2])
+# o3d.visualization.draw_geometries([dental_pcd, plane_blue_pcd])
+# o3d.visualization.draw_geometries([plane_blue_pcd,plane_blue_pcd2])
+# o3d.visualization.draw_geometries([plane_blue_pcd2,teeth_pcd])
+# o3d.visualization.draw_geometries([plane_blue_pcd2,plane_green_pcd2])
 
 
 transformation_matrix_array = np.array(transformation_matrix_m)
     
+print("===========================================================================")
+print("========================= SAVING THE TRANSFORMATION MATRIX ================")
+print("===========================================================================")
 arr_to_json(transformation_matrix_array, "outputs/"+ f"transfo_test_{haut_bas}")
