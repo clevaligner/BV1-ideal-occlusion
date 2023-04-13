@@ -34,12 +34,12 @@ def do_all(path: str, **kwargs) -> None:
 
     this_dir = os.path.dirname(os.path.realpath(__file__))
 
-    if kwargs.get("estimate"):
-        logger.info("Running root estimation algorithm...")
+    if kwargs.get("alignment"):
+        logger.info("Running alignment check & correction algorithm...")
         subprocess.run(
             [
                 "python",
-                f"{this_dir}/root-estimation.py",
+                f"{this_dir}/alignment.py",
                 client_file,
                 "--position",
                 position,
@@ -48,29 +48,29 @@ def do_all(path: str, **kwargs) -> None:
             ],
             check=True,
         )
-        logger.info("Root estimation algorithm complete.")
+        logger.info("Alignment check & correction complete.")
 
-    if kwargs.get("minimesh"):
-        logger.info("Running minimesh construction algorithm...")
-        subprocess.run(
-            [
-                "python",
-                f"{this_dir}/minimesh.py",
-                client_output,
-                "--position",
-                position,
-            ],
-            check=True,
-        )
-        logger.info("Minimesh construction algorithm complete.")
-
-    if kwargs.get("vectors"):
-        logger.info("Running vector construction algorithm...")
-        subprocess.run(
-            ["python", f"{this_dir}/vector_output.py", path, position],
-            check=True,
-        )
-        logger.info("Vector construction algorithm complete.")
+    # if kwargs.get("minimesh"):
+    #     logger.info("Running minimesh construction algorithm...")
+    #     subprocess.run(
+    #         [
+    #             "python",
+    #             f"{this_dir}/minimesh.py",
+    #             client_output,
+    #             "--position",
+    #             position,
+    #         ],
+    #         check=True,
+    #     )
+    #     logger.info("Minimesh construction algorithm complete.")
+    #
+    # if kwargs.get("vectors"):
+    #     logger.info("Running vector construction algorithm...")
+    #     subprocess.run(
+    #         ["python", f"{this_dir}/vector_output.py", path, position],
+    #         check=True,
+    #     )
+    #     logger.info("Vector construction algorithm complete.")
 
     logger.info(f"Files output to directory {client_output}")
 
@@ -89,9 +89,9 @@ def do_all(path: str, **kwargs) -> None:
     help="Which directory to save models",
     type=str,
 )
-@click.option("--estimate/--no-estimate", default=False)
-@click.option("--minimesh/--no-minimesh", default=False)
-@click.option("--vectors/--no-vectors", default=False)
+@click.option("--alignment/--no-alignment", default=False)
+# @click.option("--minimesh/--no-minimesh", default=False)
+# @click.option("--vectors/--no-vectors", default=False)
 @logger.catch
 def do_all_cli(path, **kwargs):
     # Automatically detect if this is an upper or lower

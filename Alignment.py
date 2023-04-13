@@ -198,11 +198,11 @@ except:
     datac = data_all
 
     
-new_teeth=[]
+new_teeth = []
 plane_blue_update = []
 plane_green_update = []
 transformation_matrix = []
-transformation_matrix_m=[]
+transformation_matrix_m = []
 
 print("===========================================================================")
 print("========================= APPLYING 2D MOVEMENTS ===========================")
@@ -315,3 +315,32 @@ print("=========================================================================
 print("========================= SAVING THE TRANSFORMATION MATRIX ================")
 print("===========================================================================")
 arr_to_json(transformation_matrix_array, "outputs/"+ f"transfo_test_{haut_bas}")
+
+
+def main(client: str, **kwargs):
+    """
+    Point cloud alignment and calculating the transformation matrix for the alignment
+    """
+    # Automatically detect if this is an upper or lower
+    # client jaw file. Easier cli processing
+    position = kwargs.get("position")
+    if position is None:
+        if "haut" in client:
+            kwargs["position"] = "upper"
+        elif "bas" in client:
+            kwargs["position"] = "lower"
+
+    try:
+        if kwargs.get("tooth") < 0:
+            output_all(client, **kwargs)
+
+        else:
+            runner(client, kwargs)
+
+    except Exception as e:
+        logger.catch(e)
+        raise e
+
+
+if __name__ == "__main__":
+    main()
