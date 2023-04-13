@@ -1,2 +1,3 @@
-outputs
-inputs
+outputs/
+inputs/
+model/__pycache__/

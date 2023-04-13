@@ -10,7 +10,13 @@ import open3d as o3d
 import math as m
 import json
 import os
+import click
 from sklearn.neighbors import NearestNeighbors
+
+import model.output as output
+from model.config import OUTPUT_DIR, DIRECTORY_CLIENT
+from loguru import logger
+
 
 def plane_through_3p(dict_three_points):
     p1 = dict_three_points['posterior1']
@@ -149,174 +155,217 @@ def arr_to_json(arr, file_name):
     file_name = file_name + '.json'
     with open(file_name, "w") as outfile:
         outfile.write(json_object)
-        
-haut_bas = "bas"
-
-print("===========================================================================")
-print("========================= IMPORTING FILES =================================")
-print("===========================================================================")
-
-directory1 = os.path.dirname(os.path.realpath(__file__)) + '/inputs/423/'
-directory2 = directory1 + f"dispatching_{haut_bas}/"
-directory3 = directory1 + f"filing_teeth_{haut_bas}/"
-
-txt_filename = f"seg_output_{haut_bas}.txt"
-# txt_filename = "full_teeth_array.txt"
-# dental = np.loadtxt(directory3 + txt_filename)
-dental = np.loadtxt(directory1 + txt_filename)
-dental_for_plan = dental[dental[:, 3] < 16]
 
 
-# each_tooth_centroid = np.loadtxt(directory2+"each_tooth_centroid.txt")
-plane_blue = np.loadtxt(directory2 + "plane_green.txt")
-plane_green = np.loadtxt(directory2 + "plane_blue.txt")
+def alignment(client: str, kwargs):
+    """
+    This function takes a client name and a set of keyword arguments
+    and returns a tuple containing the target point cloud, the merged
+    point cloud, the orientation vector of the tooth, and the cutting
+    plane of the crown (if applicable).
 
-# plane_blue_update_size = np.loadtxt(directory2 + "plane_green_center_mass.txt")
-plane_concat = np.concatenate((plane_blue,plane_green),axis=0)
+    Args:
+        client (str): The name of the client.
+        **kwargs: Keyword arguments specifying
+            various options for the function.
 
-# points_relavant = np.loadtxt(directory2 + "relevant_green.txt")
-plane_blue_pcd = pcd_o3d(plane_blue[:,:-1],rgb=[0,1,0])
-plane_green_pcd = pcd_o3d(plane_green[:,:-1],rgb=[1,0,0])
+    Returns:
+        Tuple[PointCloud, Vector, Plane]: A tuple containing the target
+        point cloud, the merged point cloud, the orientation vector of
+        the tooth, and the cutting plane of the crown (if applicable).
+    """
 
-dental_pcd = pcd_o3d(dental_for_plan[:,:-1],rgb=[1,1,0])
+    if kwargs["position"] == "upper":
+        haut_bas = "haut"
+    else:
+        haut_bas = "bas"
 
-# o3d.visualization.draw_geometries([plane_blue_pcd,plane_green_pcd])
+    print("===========================================================================")
+    print("========================= IMPORTING FILES =================================")
+    print("===========================================================================")
+
+    directory1 = os.path.dirname(os.path.realpath(__file__)) + '/inputs/423/'
+    directory2 = directory1 + f"dispatching_{haut_bas}/"
+    directory3 = directory1 + f"filing_teeth_{haut_bas}/"
+
+    txt_filename = f"seg_output_{haut_bas}.txt"
+    # txt_filename = "full_teeth_array.txt"
+    # dental = np.loadtxt(directory3 + txt_filename)
+    dental = np.loadtxt(directory1 + txt_filename)
+    dental_for_plan = dental[dental[:, 3] < 16]
 
 
+    # each_tooth_centroid = np.loadtxt(directory2+"each_tooth_centroid.txt")
+    plane_blue = np.loadtxt(directory2 + "plane_green.txt")
+    plane_green = np.loadtxt(directory2 + "plane_blue.txt")
 
-# plane_blue_pcd = plane_blue_pcd.voxel_down_sample(voxel_size=2)
-# relevant_blue_pcd = pcd_o3d(points_relavant,rgb=[1,0,0])
-# o3d.visualization.draw_geometries([relevant_blue_pcd])
-# o3d.visualization.draw_geometries([plane_blue_pcd,plane_green_pcd])
+    # plane_blue_update_size = np.loadtxt(directory2 + "plane_green_center_mass.txt")
+    plane_concat = np.concatenate((plane_blue,plane_green),axis=0)
 
-# fc = open(directory1 +'export_selection_13.9_42.json')#bon
-fc = open(directory1 + 'export_20.18_17.json')
-data_all = json.load(fc)
-try:
-    datac = data_all['dentArray']
-except:
-    datac = data_all
+    # points_relavant = np.loadtxt(directory2 + "relevant_green.txt")
+    plane_blue_pcd = pcd_o3d(plane_blue[:,:-1],rgb=[0,1,0])
+    plane_green_pcd = pcd_o3d(plane_green[:,:-1],rgb=[1,0,0])
 
-    
-new_teeth = []
-plane_blue_update = []
-plane_green_update = []
-transformation_matrix = []
-transformation_matrix_m = []
+    dental_pcd = pcd_o3d(dental_for_plan[:,:-1],rgb=[1,1,0])
 
-print("===========================================================================")
-print("========================= APPLYING 2D MOVEMENTS ===========================")
-print("===========================================================================")
-
-for nl in range(1,15):
-    
-    if haut_bas == "haut":
-        offsetc = [i for i in range(15,0,-1)] #upper
-        offsetc.append(0) #upper
-        data = datac[offsetc[int(nl)]]
-    else : 
-        offsetc=16 # lower
-        data = datac[int(nl)+offsetc]
-    
-    plane_blue_tooth = plane_blue[plane_blue[:,-1] == int(nl)][:,:-1]
-    plane_green_tooth = plane_green[plane_green[:,-1] == int(nl)][:,:-1]
-    
-    
-    tooth  = dental[dental[:,-1] == int(nl)][:,:-1]
-    
-    center_free_edge = np.array([data["ORIGIN"]["POSITION"]["X"],data["ORIGIN"]["POSITION"]["Y"],0])
-        
-    plane_blue_tooth = plane_blue_tooth - center_free_edge
-    plane_green_tooth = plane_green_tooth - center_free_edge
-    
-    
-    tooth = tooth - center_free_edge
-    T1 = np.identity(4)
-    T1[:-1,-1] = - center_free_edge
-    
-    
-    rot_yehiel = -data["MODIFIED"]["ANGLE"] + data["ORIGIN"]["ANGLE"]
-    rot_matrix = rotation_matrix(0,0,rot_yehiel)
-    tooth = tooth.dot(rot_matrix)
-    T2 = np.identity(4)
-    T2[:-1,:-1] = rot_matrix.T
-    
-    
-    plane_blue_tooth = plane_blue_tooth.dot(rotation_matrix(0,0,rot_yehiel))
-    plane_blue_tooth = np.array(plane_blue_tooth)
-    
-    plane_green_tooth = plane_green_tooth.dot(rotation_matrix(0,0,rot_yehiel))
-    plane_green_tooth = np.array(plane_green_tooth)
-    
-    tooth = np.array(tooth)
-    plane_blue_tooth = plane_blue_tooth + np.array([data["MODIFIED"]["POSITION"]["X"],data["MODIFIED"]["POSITION"]["Y"],0])
-    plane_green_tooth = plane_green_tooth + np.array([data["MODIFIED"]["POSITION"]["X"],data["MODIFIED"]["POSITION"]["Y"],0])
-    
-    tooth = tooth + np.array([data["MODIFIED"]["POSITION"]["X"],data["MODIFIED"]["POSITION"]["Y"],0])
-    T3 = np.identity(4)
-    T3[:-1,-1] = np.array([data["MODIFIED"]["POSITION"]["X"],data["MODIFIED"]["POSITION"]["Y"],0])
-    
-    plane_blue_update.append(plane_blue_tooth)
-    plane_green_update.append(plane_green_tooth)
+    # o3d.visualization.draw_geometries([plane_blue_pcd,plane_green_pcd])
 
 
 
-    T4 = np.identity(4)
-    rot_matrix_180 = rotation_matrix(0,180,0)
-    T4[:-1,:-1] = rot_matrix_180.T
-    
-    
-    
-    if haut_bas == "haut" :
-        transfo_m = T4@T3@T2@T1
-        # tooth = tooth.dot(rot_matrix_180)
-        # tooth = np.array(tooth)
-    else : 
-        transfo_m = T3@T2@T1
+    # plane_blue_pcd = plane_blue_pcd.voxel_down_sample(voxel_size=2)
+    # relevant_blue_pcd = pcd_o3d(points_relavant,rgb=[1,0,0])
+    # o3d.visualization.draw_geometries([relevant_blue_pcd])
+    # o3d.visualization.draw_geometries([plane_blue_pcd,plane_green_pcd])
 
-    new_teeth.append(tooth)
-    transformation_matrix_m.append(transfo_m)
-    
-    
+    # fc = open(directory1 +'export_selection_13.9_42.json')#bon
+    fc = open(directory1 + 'export_20.18_17.json')
+    data_all = json.load(fc)
+    try:
+        datac = data_all['dentArray']
+    except:
+        datac = data_all
 
 
-##################### OCCLUSION PLANE ###########################################################
+    new_teeth = []
+    plane_blue_update = []
+    plane_green_update = []
+    transformation_matrix = []
+    transformation_matrix_m = []
 
-# left_molars_avg = dental[dental[:,-1] == int(1)][:,:-1].mean(axis=0)
-# incisal_edges_mid = dental[dental[:,-1] == int(7)][:,:-1].mean(axis=0)
-# right_molars_avg = dental[dental[:,-1] == int(14)][:,:-1].mean(axis=0)
+    print("===========================================================================")
+    print("========================= APPLYING 2D MOVEMENTS ===========================")
+    print("===========================================================================")
 
-# occ_plane, occ_plane_points = occ_plane(dental_for_plan, left_molars_avg,incisal_edges_mid,right_molars_avg)
+    for nl in range(1,15):
 
-# pcd_plane = pcd_o3d(occ_plane_points,rgb=[0,0,1])
-# o3d.visualization.draw_geometries([dental_pcd, pcd_plane])
+        if haut_bas == "haut":
+            offsetc = [i for i in range(15,0,-1)] #upper
+            offsetc.append(0) #upper
+            data = datac[offsetc[int(nl)]]
+        else :
+            offsetc=16 # lower
+            data = datac[int(nl)+offsetc]
 
-
-
-
-
-
-        
-plane_blue_pcd2 = pcd_o3d(np.concatenate(plane_blue_update),rgb=[1,0,0])
-plane_green_pcd2 = pcd_o3d(np.concatenate(plane_green_update),rgb=[0,1,0])
-
-# np.savetxt("comparaison_ortal/" + f"{haut_bas}_updated_after_yehiel.txt",np.concatenate(new_teeth))
-
-teeth_pcd = pcd_o3d(np.concatenate(new_teeth),rgb=[0,0,1])
-# o3d.visualization.draw_geometries([dental_pcd, plane_blue_pcd])
-# o3d.visualization.draw_geometries([plane_blue_pcd,plane_blue_pcd2])
-# o3d.visualization.draw_geometries([plane_blue_pcd2,teeth_pcd])
-# o3d.visualization.draw_geometries([plane_blue_pcd2,plane_green_pcd2])
+        plane_blue_tooth = plane_blue[plane_blue[:,-1] == int(nl)][:,:-1]
+        plane_green_tooth = plane_green[plane_green[:,-1] == int(nl)][:,:-1]
 
 
-transformation_matrix_array = np.array(transformation_matrix_m)
-    
-print("===========================================================================")
-print("========================= SAVING THE TRANSFORMATION MATRIX ================")
-print("===========================================================================")
-arr_to_json(transformation_matrix_array, "outputs/"+ f"transfo_test_{haut_bas}")
+        tooth  = dental[dental[:,-1] == int(nl)][:,:-1]
+
+        center_free_edge = np.array([data["ORIGIN"]["POSITION"]["X"],data["ORIGIN"]["POSITION"]["Y"],0])
+
+        plane_blue_tooth = plane_blue_tooth - center_free_edge
+        plane_green_tooth = plane_green_tooth - center_free_edge
 
 
+        tooth = tooth - center_free_edge
+        T1 = np.identity(4)
+        T1[:-1,-1] = - center_free_edge
+
+
+        rot_yehiel = -data["MODIFIED"]["ANGLE"] + data["ORIGIN"]["ANGLE"]
+        rot_matrix = rotation_matrix(0,0,rot_yehiel)
+        tooth = tooth.dot(rot_matrix)
+        T2 = np.identity(4)
+        T2[:-1,:-1] = rot_matrix.T
+
+
+        plane_blue_tooth = plane_blue_tooth.dot(rotation_matrix(0,0,rot_yehiel))
+        plane_blue_tooth = np.array(plane_blue_tooth)
+
+        plane_green_tooth = plane_green_tooth.dot(rotation_matrix(0,0,rot_yehiel))
+        plane_green_tooth = np.array(plane_green_tooth)
+
+        tooth = np.array(tooth)
+        plane_blue_tooth = plane_blue_tooth + np.array([data["MODIFIED"]["POSITION"]["X"],data["MODIFIED"]["POSITION"]["Y"],0])
+        plane_green_tooth = plane_green_tooth + np.array([data["MODIFIED"]["POSITION"]["X"],data["MODIFIED"]["POSITION"]["Y"],0])
+
+        tooth = tooth + np.array([data["MODIFIED"]["POSITION"]["X"],data["MODIFIED"]["POSITION"]["Y"],0])
+        T3 = np.identity(4)
+        T3[:-1,-1] = np.array([data["MODIFIED"]["POSITION"]["X"],data["MODIFIED"]["POSITION"]["Y"],0])
+
+        plane_blue_update.append(plane_blue_tooth)
+        plane_green_update.append(plane_green_tooth)
+
+
+
+        T4 = np.identity(4)
+        rot_matrix_180 = rotation_matrix(0,180,0)
+        T4[:-1,:-1] = rot_matrix_180.T
+
+
+
+        if haut_bas == "haut" :
+            transfo_m = T4@T3@T2@T1
+            # tooth = tooth.dot(rot_matrix_180)
+            # tooth = np.array(tooth)
+        else :
+            transfo_m = T3@T2@T1
+
+        new_teeth.append(tooth)
+        transformation_matrix_m.append(transfo_m)
+
+
+
+
+    ##################### OCCLUSION PLANE ###########################################################
+
+    # left_molars_avg = dental[dental[:,-1] == int(1)][:,:-1].mean(axis=0)
+    # incisal_edges_mid = dental[dental[:,-1] == int(7)][:,:-1].mean(axis=0)
+    # right_molars_avg = dental[dental[:,-1] == int(14)][:,:-1].mean(axis=0)
+
+    # occ_plane, occ_plane_points = occ_plane(dental_for_plan, left_molars_avg,incisal_edges_mid,right_molars_avg)
+
+    # pcd_plane = pcd_o3d(occ_plane_points,rgb=[0,0,1])
+    # o3d.visualization.draw_geometries([dental_pcd, pcd_plane])
+
+
+
+
+
+
+
+    plane_blue_pcd2 = pcd_o3d(np.concatenate(plane_blue_update),rgb=[1,0,0])
+    plane_green_pcd2 = pcd_o3d(np.concatenate(plane_green_update),rgb=[0,1,0])
+
+    # np.savetxt("comparaison_ortal/" + f"{haut_bas}_updated_after_yehiel.txt",np.concatenate(new_teeth))
+
+    teeth_pcd = pcd_o3d(np.concatenate(new_teeth),rgb=[0,0,1])
+    # o3d.visualization.draw_geometries([dental_pcd, plane_blue_pcd])
+    # o3d.visualization.draw_geometries([plane_blue_pcd,plane_blue_pcd2])
+    # o3d.visualization.draw_geometries([plane_blue_pcd2,teeth_pcd])
+    # o3d.visualization.draw_geometries([plane_blue_pcd2,plane_green_pcd2])
+
+
+    transformation_matrix_array = np.array(transformation_matrix_m)
+
+    print("===========================================================================")
+    print("========================= SAVING THE TRANSFORMATION MATRIX ================")
+    print("===========================================================================")
+    arr_to_json(transformation_matrix_array, "outputs/"+ f"transfo_test_{haut_bas}")
+
+
+@click.command()
+@click.option(
+    "--position",
+    default=None,
+    type=click.Choice(["upper", "haut", "lower", "bas", None]),
+    help="Is this the upper or lower jaw",
+)
+@click.option(
+    "--directory",
+    default=OUTPUT_DIR,
+    help="Which directory to save models",
+    type=str,
+)
+@click.argument(
+    "client",
+    type=str,
+    nargs=1,
+    default=os.path.join(
+        DIRECTORY_CLIENT, "patient-4-17/seg_output_bas_new.txt"
+    ),
+)
 def main(client: str, **kwargs):
     """
     Point cloud alignment and calculating the transformation matrix for the alignment
@@ -331,11 +380,7 @@ def main(client: str, **kwargs):
             kwargs["position"] = "lower"
 
     try:
-        if kwargs.get("tooth") < 0:
-            output_all(client, **kwargs)
-
-        else:
-            runner(client, kwargs)
+        alignment(client, kwargs)
 
     except Exception as e:
         logger.catch(e)

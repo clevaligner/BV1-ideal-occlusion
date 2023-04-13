@@ -19,12 +19,16 @@ import model.output as output  # noqa: E402
 
 def do_all(path: str, **kwargs) -> None:
     """
-    First reads the input file for the client and generates extensions
-    and cleans up all of the teeth. Also generates vectors for the teeth
-    seating.
-
-    Then runs another script to combine all generated stl files into a single
-    minimesh and outputs it into the same folder
+    First reads the input file for the client.
+    Then run the 8 ideal occlusion tests & corrections:
+    - Alignment & Rotation (done & integrated)
+    - Marginal ridges
+    - Buccolingual inclination
+    - Overjet
+    - Occlusal contact
+    - Occlusal relationship
+    - Interproximal contact
+    - root angulation
     """
     position = kwargs.get("position")
 
